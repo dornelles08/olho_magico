@@ -33,6 +33,12 @@ SAVE_IMAGES = True
 KNOW_IMAGES_DIR = "known_faces"
 IMAGES_DIR = "detected_images"
 
+if SAVE_IMAGES and not os.path.exists(IMAGES_DIR):
+    os.makedirs(IMAGES_DIR)
+
+if not os.path.exists(KNOW_IMAGES_DIR):
+    os.makedirs(KNOW_IMAGES_DIR)
+
 # Carregar imagens de referência e nomes
 known_face_encodings = []
 known_face_names = []
