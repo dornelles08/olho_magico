@@ -132,7 +132,7 @@ def main():
     # Agendar a verificação
     # schedule.every(CHECK_INTERVAL_SECONDS).seconds.do(detector.check_camera)
 
-    logger.info("Monitoramento iniciado - verificando a cada %s minutos",
+    logger.info("Monitoramento iniciado - verificando a cada %s segundos",
                 CHECK_INTERVAL_SECONDS)
 
     # Loop principal

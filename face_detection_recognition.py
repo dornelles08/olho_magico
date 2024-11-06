@@ -73,10 +73,10 @@ class FaceRecognizer:
 
             # Se a URL da câmera não funcionar, buscar uma imagem aleatória
             image_files = [f for f in os.listdir(
-                IMAGES_DIR) if f.endswith(".jpg") or f.endswith(".png")]
+                "images") if f.endswith(".jpg") or f.endswith(".png")]
             if image_files:
                 random_file = random.choice(image_files)
-                image = cv2.imread(os.path.join(IMAGES_DIR, random_file))
+                image = cv2.imread(os.path.join("images", random_file))
                 logger.info("Usando imagem aleatória: %s", random_file)
                 return image
 
@@ -110,7 +110,7 @@ class FaceRecognizer:
                         name = known_face_names[i]
                         break
 
-                names.append(name)
+                names.append(name.split("_")[0])
 
             return face_locations, names
         except Exception as e:
@@ -153,7 +153,7 @@ class FaceRecognizer:
 
                 # Escrever nome
                 cv2.putText(image, name, (left, top - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 4, (0, 255, 0), 2)
 
             # Salvar imagem
             image_path = self.save_image(image, names)
@@ -172,7 +172,7 @@ def main():
     # Agendar a verificação
     # schedule.every(CHECK_INTERVAL_SECONDS).seconds.do(recognizer.check_camera)
 
-    logger.info("Monitoramento iniciado - verificando a cada %s minutos",
+    logger.info("Monitoramento iniciado - verificando a cada %s segundos",
                 CHECK_INTERVAL_SECONDS)
 
     # Loop principal
