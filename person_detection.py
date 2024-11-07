@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configurações
-CAMERA_ENDPOINT = "http://192.168.0.30/capture"
+CAMERA_ENDPOINT = "http://192.168.0.15/capture"
 TELEGRAM_BOT_TOKEN = ""
 TELEGRAM_CHAT_ID = ""
 CHECK_INTERVAL_SECONDS = 30

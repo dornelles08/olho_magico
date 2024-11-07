@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configurações
-CAMERA_ENDPOINT = "http://192.168.0.30/capture"
+CAMERA_ENDPOINT = "http://192.168.0.15/capture"
 TELEGRAM_BOT_TOKEN = ""
 TELEGRAM_CHAT_ID = ""
 CHECK_INTERVAL_SECONDS = 30
@@ -87,9 +87,9 @@ class FaceRecognizer:
         try:
             # Detectar rostos na imagem
             face_locations = face_recognition.face_locations(image)
-            if len(face_locations) == 0:
-                logger.info("Nenhum rosto detectado")
-                return None, []
+            # if len(face_locations) == 0:
+            #     logger.info("Nenhum rosto detectado")
+            #     return None, []
 
             face_encodings = face_recognition.face_encodings(
                 image, face_locations)
