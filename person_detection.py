@@ -1,72 +1,84 @@
-import asyncio
+"""
+Módulo para detecção de pessoas em imagens usando YOLO.
+
+Este módulo implementa um sistema de detecção de pessoas utilizando o modelo YOLO,
+com funcionalidades para monitoramento contínuo através de câmeras IP. O sistema
+inclui:
+
+- Detecção automática de pessoas em intervalos configuráveis
+- Logging de eventos e detecções
+- Salvamento de imagens com detecções
+- Integração com câmeras IP através de endpoints HTTP
+
+Attributes:
+    CAMERA_ENDPOINT (str): URL do endpoint da câmera para captura de imagens
+    CHECK_INTERVAL_SECONDS (int): Intervalo em segundos entre verificações
+    SAVE_IMAGES (bool): Flag para habilitar/desabilitar salvamento de imagens
+    IMAGES_DIR (str): Diretório onde as imagens detectadas serão salvas
+
+Dependencies:
+    - OpenCV (cv2)
+    - Ultralytics YOLO
+    - NumPy
+    - Requests
+    - Schedule
+"""
+
 import logging
 import os
-import random
 import time
-from datetime import datetime
 
 import cv2
-import numpy as np
-import requests
 import schedule
-# from telegram import Update
+from dotenv import load_dotenv
 from ultralytics import YOLO
+
+from functions.download_image import download_image
+from functions.save_image import save_image
+
+load_dotenv()
 
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('person_detection.log'),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("person_detection.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
 # Configurações
-CAMERA_ENDPOINT = "http://192.168.0.15/capture"
-TELEGRAM_BOT_TOKEN = ""
-TELEGRAM_CHAT_ID = ""
-CHECK_INTERVAL_SECONDS = 30
+CAMERA_ENDPOINT = os.getenv("CAMERA_ENDPOINT")
+CHECK_INTERVAL_SECONDS = int(os.getenv("CHECK_INTERVAL_SECONDS"))
 SAVE_IMAGES = True
 IMAGES_DIR = "detected_images"
 
-# Criar diretório para salvar imagens se não existir
-if SAVE_IMAGES and not os.path.exists(IMAGES_DIR):
-    os.makedirs(IMAGES_DIR)
-
 
 class PersonDetector:
+    """
+    Classe responsável por detectar pessoas em imagens usando o modelo YOLO.
+    Esta classe fornece funcionalidades para:
+    - Carregar e inicializar o modelo YOLO
+    - Fazer download de imagens de uma câmera remota
+    - Detectar pessoas nas imagens capturadas
+    - Salvar imagens com detecções
+    Attributes:
+        model: Instância do modelo YOLO carregado para detecção de objetos
+    """
+
     def __init__(self):
-        # Carregar modelo YOLO
-        self.model = YOLO('yolov8n.pt')
-        # Inicializar bot do Telegram
-        # self.bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-    def download_image(self):
-        try:
-            response = requests.get(CAMERA_ENDPOINT, timeout=5)
-            response.raise_for_status()
-
-            # Converter a resposta em uma imagem
-            image_array = np.asarray(
-                bytearray(response.content), dtype=np.uint8)
-            image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-            return image
-        except Exception as e:
-            logger.error("Erro ao baixar imagem: %s", str(e))
-            image_files = [f for f in os.listdir(
-                "images/") if f.endswith(".jpg") or f.endswith(".png")]
-            if image_files:
-                random_file = random.choice(image_files)
-                image = cv2.imread(os.path.join("images/", random_file))
-                logger.info("Usando imagem aleatória: %s", random_file)
-                return image
-
-            logger.error("Não há imagens disponíveis na pasta local")
-            return None
+        self.model = YOLO("yolov8n.pt")
 
     def detect_person(self, image):
+        """
+        Detecta pessoas em uma imagem usando o modelo YOLO.
+        Args:
+            image: Imagem em formato numpy array (BGR)
+        Returns:
+            tuple: (bool, box)
+                - bool: True se uma pessoa foi detectada, False caso contrário
+                - box: Coordenadas da caixa de detecção se uma pessoa foi encontrada, None caso contrário
+        """
+
         try:
             # Executar detecção
             results = self.model(image)
@@ -82,24 +94,26 @@ class PersonDetector:
             logger.error("Erro na detecção: %s", str(e))
             return False, None
 
-    async def send_telegram_alert(self, image_path=None):
-        pass
-
-    def save_image(self, image):
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            image_path = os.path.join(IMAGES_DIR, f"detection_{timestamp}.jpg")
-            cv2.imwrite(image_path, image)
-            return image_path
-        except Exception as e:
-            logger.error("Erro ao salvar imagem: %s", str(e))
-            return None
-
     def check_camera(self):
+        """
+        Realiza a verificação da câmera para detectar pessoas.
+
+        Este método executa os seguintes passos:
+        1. Baixa uma imagem da câmera
+        2. Executa a detecção de pessoas na imagem
+        3. Se uma pessoa for detectada:
+           - Desenha uma caixa de detecção na imagem (se houver)
+           - Salva a imagem (se configurado)
+           - Registra a detecção nos logs
+
+        Returns:
+            None
+        """
+
         logger.info("Iniciando verificação da câmera")
 
         # Baixar imagem
-        image = self.download_image()
+        image = download_image(CAMERA_ENDPOINT, logger)
         if image is None:
             return
 
@@ -116,29 +130,43 @@ class PersonDetector:
                     # Desenhar caixa de detecção na imagem
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                image_path = self.save_image(image)
+                image_path = save_image(image, IMAGES_DIR, logger)
 
-            # Enviar alerta
-            asyncio.run(self.send_telegram_alert(image_path))
+            # TODO - Enviar alerta
+            logger.info(image_path)
         else:
             logger.info("Nenhuma pessoa detectada")
 
 
 def main():
+    """
+    Função principal que inicializa o detector de pessoas e configura o agendamento
+    das verificações periódicas da câmera. O programa roda continuamente,
+    verificando a câmera no intervalo definido em CHECK_INTERVAL_SECONDS.
+    """
+
+    if not CAMERA_ENDPOINT:
+        logger.error("A URL da câmera não está configurada.")
+        return
+    if CHECK_INTERVAL_SECONDS <= 0 or CHECK_INTERVAL_SECONDS is None:
+        logger.error("O intervalo de verificação deve ser maior que zero ou não nulo.")
+        return
+
+    if SAVE_IMAGES and not os.path.exists(IMAGES_DIR):
+        os.makedirs(IMAGES_DIR)
+
     detector = PersonDetector()
 
-    detector.check_camera()
+    schedule.every(CHECK_INTERVAL_SECONDS).seconds.do(detector.check_camera)
 
-    # Agendar a verificação
-    # schedule.every(CHECK_INTERVAL_SECONDS).seconds.do(detector.check_camera)
+    logger.info(
+        "Monitoramento iniciado - verificando a cada %s segundos",
+        CHECK_INTERVAL_SECONDS,
+    )
 
-    logger.info("Monitoramento iniciado - verificando a cada %s segundos",
-                CHECK_INTERVAL_SECONDS)
-
-    # Loop principal
-    # while True:
-    #     schedule.run_pending()
-    #     time.sleep(1)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 if __name__ == "__main__":
